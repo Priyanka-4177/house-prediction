@@ -1,1 +1,120 @@
-https://colab.research.google.com/drive/1y-La4mwTb0iSj0kFTvw-Od_jHYwz-An2
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import MinMaxScaler
+from sklearn import metrics
+from sklearn.svm import SVC
+from xgboost import XGBClassifier
+from sklearn.linear_model import LogisticRegression
+
+import warnings
+warnings.filterwarnings('ignore')
+# for rading data from dataset
+
+
+
+wine = pd.read_csv('/content/WineQuality.csv')
+wine.head()
+
+wine = wine.drop(wine.columns[0], axis=1)
+wine.head()
+
+wine.info()
+
+
+
+# Descriptive statistical measures of the dataset
+wine.describe().T
+
+
+
+# Check the number of null values
+wine.isnull().sum()
+
+#showing plot for each attribute in dataset
+
+wine.hist(bins=20, figsize=(10,10))
+plt.show()
+
+#alchol quality graph
+
+plt.bar(wine['quality'], wine['alcohol'])
+plt.xlabel('quality')
+plt.ylabel('alcohol')
+plt.show()
+
+# Find redundant features
+plt.figure(figsize=(12,12))
+sns.heatmap(wine.drop('Type', axis=1).corr() > 0.7, annot=True, cbar=False)
+plt.show()
+
+wine = wine.drop('total sulfur dioxide', axis=1)
+wine.head()
+
+wine['best quality'] = [1 if x > 5 else 0 for x in wine.quality]
+wine.head()
+
+
+
+# Replace object data type with int for Type column
+wine.replace({'White Wine': 1, 'Red Wine': 0}, inplace=True)
+wine.head()
+
+features = wine.drop(['quality', 'best quality'], axis=1)
+target = wine['best quality']
+# Split the data 80:20 ratio
+X_train, X_test, y_train, y_test = train_test_split(features, target, test_size=0.2, random_state=40)
+X_train.shape, X_test.shape
+
+
+
+# Normalise the data
+norm = MinMaxScaler()
+X_train = norm.fit_transform(X_train)
+X_test = norm.transform(X_test)
+
+from sklearn.impute import SimpleImputer
+# Create an imputer
+imputer = SimpleImputer(strategy='mean')
+# Fit and transform the imputer on your training data
+X_train_imputed = imputer.fit_transform(X_train)
+# Apply the same imputer to your test data
+X_test_imputed = imputer.transform(X_test)
+
+import numpy as np
+# Find rows with any missing values in X_train and X_test
+missing_rows_train = np.any(np.isnan(X_train), axis=1)
+missing_rows_test = np.any(np.isnan(X_test), axis=1)
+
+# Remove rows with missing values from X_train and y_train
+X_train = X_train[~missing_rows_train]
+y_train = y_train[~missing_rows_train]
+
+# Remove rows with missing values from X_test and y_test
+X_test = X_test[~missing_rows_test]
+y_test = y_test[~missing_rows_test]
+
+
+# Train some models
+models = [LogisticRegression(), XGBClassifier(), SVC(kernel='rbf')]
+
+for i in range(3):
+    models[i].fit(X_train, y_train)
+
+    print(f"{models[i]}: ")
+    print("Training Accuracy: ", metrics.roc_auc_score(y_train, models[i].predict(X_train)))
+    print("Validation Accuracy: ", metrics.roc_auc_score(y_test, models[i].predict(X_test)))
+    print()
+
+
+
+y_pred = models[1].predict(X_test)
+print(metrics.confusion_matrix(y_test, y_pred))
+
+
+
+print(metrics.classification_report(y_test, models[1].predict(X_test)))
+
+
